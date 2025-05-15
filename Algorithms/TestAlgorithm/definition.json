@@ -1,0 +1,25 @@
+{
+  "name": "TestAlgorithm",
+  "title": "Тестовый алгоритм",
+  "description": "Пример алгоритма для тестирования API",
+  "parameters": [
+    {
+      "name": "input_value",
+      "title": "Входное значение",
+      "description": "Целое число для обработки",
+      "data_type": "INT",
+      "data_shape": "SCALAR",
+      "default_value": 5
+    }
+  ],
+  "outputs": [
+    {
+      "name": "result",
+      "title": "Результат",
+      "description": "Удвоенное входное значение",
+      "data_type": "INT",
+      "data_shape": "SCALAR",
+      "default_value": 0
+    }
+  ]
+}

@@ -1,0 +1,64 @@
+{
+  "name": "LevelScheduling",
+  "title": "Уровневая стратегия",
+  "description": "Оптимизация расписания для зависимых работ с распределением по уровням приоритета",
+  "parameters": [
+    {
+      "name": "num_jobs",
+      "title": "Количество работ",
+      "description": "Введите количество работ (N)",
+      "data_type": "INT",
+      "data_shape": "SCALAR",
+      "default_value": 4,
+      "matrix_controller": true
+    },
+    {
+      "name": "num_workers",
+      "title": "Количество работников",
+      "description": "Введите количество работников (M)",
+      "data_type": "INT",
+      "data_shape": "SCALAR",
+      "default_value": 2
+    },
+    {
+      "name": "dependencies",
+      "title": "Матрица зависимостей",
+      "description": "Матрица N×N, где 1 означает зависимость работы i от j",
+      "data_type": "INT",
+      "data_shape": "DYNAMIC_MATRIX",
+      "default_value": [
+        [ 0, 0, 0, 0 ],
+        [ 1, 0, 0, 0 ],
+        [ 1, 0, 0, 0 ],
+        [ 0, 1, 1, 0 ]
+      ],
+      "dimensions": {
+        "rows": "num_jobs",
+        "cols": "num_jobs"
+      }
+    }
+  ],
+  "outputs": [
+    {
+      "name": "schedule",
+      "title": "Оптимальное расписание",
+      "description": "Распределение работ по временным слотам и работникам",
+      "data_type": "STRING",
+      "data_shape": "SCALAR"
+    },
+    {
+      "name": "levels",
+      "title": "Уровни работ",
+      "description": "Приоритетные уровни для каждой работы",
+      "data_type": "STRING",
+      "data_shape": "SCALAR"
+    },
+    {
+      "name": "makespan",
+      "title": "Общее время выполнения",
+      "description": "Количество временных слотов для выполнения всех работs",
+      "data_type": "INT",
+      "data_shape": "SCALAR"
+    }
+  ]
+}

@@ -1,0 +1,48 @@
+{
+  "name": "lexicographic",
+  "title": "Лексикографическая стратегия",
+  "description": "Оптимизация расписания для зависимых работ",
+  "parameters": [
+    {
+      "name": "num_jobs",
+      "title": "Количество работ",
+      "description": "Введите количество работ (N)",
+      "data_type": "INT",
+      "data_shape": "SCALAR",
+      "default_value": 3,
+      "matrix_controller": true
+    },
+    {
+      "name": "dependencies",
+      "title": "Матрица зависимостей",
+      "description": "Матрица N×N, где 1 означает зависимость работы i от j",
+      "data_type": "INT",
+      "data_shape": "DYNAMIC_MATRIX",
+      "default_value": [
+        [ 0, 1, 0 ],
+        [ 0, 0, 0 ],
+        [ 0, 1, 0 ]
+      ],
+      "dimensions": {
+        "rows": "num_jobs",
+        "cols": "num_jobs"
+      }
+    }
+  ],
+  "outputs": [
+    {
+      "name": "schedule",
+      "title": "Оптимальное расписание",
+      "description": "Порядок выполнения работ",
+      "data_type": "STRING",
+      "data_shape": "SCALAR"
+    },
+    {
+      "name": "gantt_chart",
+      "title": "Диаграмма Ганта",
+      "description": "Распределение работ по исполнителям",
+      "data_type": "STRING",
+      "data_shape": "SCALAR"
+    }
+  ]
+}

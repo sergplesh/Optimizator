@@ -1,0 +1,51 @@
+{
+  "name": "johnson",
+  "title": "Алгоритм Джонсона",
+  "description": "Двухэтапное планирование задач с минимальным общим временем выполнения",
+  "parameters": [
+    {
+      "name": "num_jobs",
+      "title": "Количество работ",
+      "description": "Введите количество работ (N)",
+      "data_type": "INT",
+      "data_shape": "SCALAR",
+      "default_value": 3,
+      "matrix_controller": true
+    },
+    {
+      "name": "job_times",
+      "title": "Времена выполнения",
+      "description": "Матрица времен выполнения (N × 2)",
+      "data_type": "FLOAT",
+      "data_shape": "DYNAMIC_MATRIX",
+      "default_value": [
+        [ 1.0, 2.0 ],
+        [ 3.0, 4.0 ],
+        [ 5.0, 6.0 ]
+      ],
+      "dimensions": {
+        "rows": "num_jobs",
+        "cols": 2
+      },
+      "column_labels": [ "Этап 1", "Этап 2" ]
+    }
+  ],
+  "outputs": [
+    {
+      "name": "optimal_time",
+      "title": "Оптимальное время выполнения",
+      "description": "Минимальное общее время выполнения всех работ",
+      "data_type": "FLOAT",
+      "data_shape": "SCALAR",
+      "default_value": 0.0
+    },
+    {
+      "name": "schedule",
+      "title": "Оптимальное расписание",
+      "description": "Порядок выполнения работ",
+      "data_type": "INT",
+      "data_shape": "LIST",
+      "default_value": [ 0, 1, 2 ]
+    }
+  ]
+}
