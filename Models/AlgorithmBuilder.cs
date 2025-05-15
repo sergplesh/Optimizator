@@ -6,6 +6,8 @@ using System.Collections.Generic;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis;
 using System.Text.Json.Serialization;
+using System.Runtime.Loader;
+using Optimizator.Models;
 
 namespace Optimizator.Models
 {
@@ -47,8 +49,6 @@ namespace Optimizator.Models
                     Console.WriteLine($"  - {param.Name}: Тип данных={param.DataType}, Форма данных={param.DataShape}");
                 }
 
-                Console.WriteLine($"- Визуализация: {definition.OutputVisualization?.Type ?? "нет"}");
-
                 return definition;
             }
             catch (JsonException ex)
@@ -56,7 +56,6 @@ namespace Optimizator.Models
                 throw new JsonException($"Провалена попытка преобразовать описание для алгоритма {algorithmName}", ex);
             }
         }
-
         public MethodInfo GetAlgorithmMethod(string algorithmName)
         {
             var algorithmPath = Path.Combine(_algorithmsPath, algorithmName);
@@ -67,28 +66,66 @@ namespace Optimizator.Models
                 throw new FileNotFoundException($"Не найдена реализация для алгоритма {algorithmName}");
             }
 
-            // Динамически компилируем код из файла
-            var code = File.ReadAllText(algorithmFile);
-            var compilation = CSharpCompilation.Create(algorithmName)
-                .WithOptions(new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary))
-                .AddReferences(
-                    MetadataReference.CreateFromFile(typeof(object).Assembly.Location),
-                    MetadataReference.CreateFromFile(typeof(Dictionary<string, object>).Assembly.Location)
-                )
-                .AddSyntaxTrees(CSharpSyntaxTree.ParseText(code));
+            // 1. Получаем все системные сборки, используемые в текущем домене
+            var trustedAssemblies = ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")).Split(Path.PathSeparator);
+            var references = trustedAssemblies
+                .Select(path => MetadataReference.CreateFromFile(path))
+                .ToList();
+
+            // 2. Добавляем специальные сборки, которые могут отсутствовать в списке
+            var additionalAssemblies = new[]
+            {
+                typeof(object).Assembly,
+                typeof(Enumerable).Assembly,
+                typeof(System.Linq.Expressions.Expression).Assembly,
+                typeof(System.Runtime.GCSettings).Assembly,
+                typeof(Microsoft.CSharp.RuntimeBinder.RuntimeBinderException).Assembly,
+                Assembly.GetExecutingAssembly()
+            };
+
+            for (int i = 0; i < additionalAssemblies.Length; i++)
+            {
+                if (!references.Any(r => r.Display == additionalAssemblies[i].Location))
+                {
+                    references.Add(MetadataReference.CreateFromFile(additionalAssemblies[i].Location));
+                }
+            }
+
+            // 3. Настройки компиляции
+            var compilationOptions = new CSharpCompilationOptions(
+                OutputKind.DynamicallyLinkedLibrary,
+                optimizationLevel: OptimizationLevel.Release,
+                assemblyIdentityComparer: DesktopAssemblyIdentityComparer.Default);
+
+            // 4. Компиляция
+            var compilation = CSharpCompilation.Create(
+                assemblyName: $"{algorithmName}_DynamicAssembly",
+                syntaxTrees: new[] { CSharpSyntaxTree.ParseText(File.ReadAllText(algorithmFile)) },
+                references: references,
+                options: compilationOptions);
 
             using var ms = new MemoryStream();
-            var result = compilation.Emit(ms);
+            var emitResult = compilation.Emit(ms);
 
-            if (!result.Success)
+            // 5. Обработка ошибок компиляции
+            if (!emitResult.Success)
             {
-                var errors = string.Join("\n", result.Diagnostics);
-                throw new InvalidOperationException($"Компиляция провалена:\n{errors}");
+                var errors = emitResult.Diagnostics
+                    .Where(d => d.Severity == DiagnosticSeverity.Error)
+                    .Select(d => $"{d.Id}: {d.GetMessage()}")
+                    .Distinct();
+                throw new InvalidOperationException($"Ошибка компиляции:\n{string.Join("\n", errors)}");
             }
 
             ms.Seek(0, SeekOrigin.Begin);
+
+            // 6. Загрузка сборки в контекст
             var assembly = Assembly.Load(ms.ToArray());
-            var algorithmType = assembly.GetType($"SheduleOpt.Algorithms.{algorithmName}.{algorithmName}");
+
+            // 7. Поиск метода Main
+            var algorithmType = assembly.GetTypes()
+                .FirstOrDefault(t => t.GetMethod("Main", BindingFlags.Public | BindingFlags.Static) != null);
+
             return algorithmType?.GetMethod("Main");
         }
     }

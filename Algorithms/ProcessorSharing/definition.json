@@ -1,0 +1,89 @@
+{
+  "name": "processor_sharing",
+  "title": "Разделение процессоров",
+  "description": "Оптимизация расписания для прерываемых работ с учетом производительности работников",
+  "parameters": [
+    {
+      "name": "num_jobs",
+      "title": "Количество работ",
+      "description": "Введите количество работ (N)",
+      "data_type": "INT",
+      "data_shape": "SCALAR",
+      "default_value": 4,
+      "matrix_controller": true
+    },
+    {
+      "name": "num_workers",
+      "title": "Количество работников",
+      "description": "Введите количество работников (K), K ≤ N",
+      "data_type": "INT",
+      "data_shape": "SCALAR",
+      "default_value": 2,
+      "matrix_controller": true
+    },
+    {
+      "name": "job_durations",
+      "title": "Длительности работ",
+      "description": "Список длительностей работ (V1, V2, ..., Vn)",
+      "data_type": "FLOAT",
+      "data_shape": "DYNAMIC_MATRIX",
+      "default_value": [
+        [ 5.0 ],
+        [ 3.0 ],
+        [ 2.0 ],
+        [ 1.0 ]
+      ],
+      "dimensions": {
+        "rows": "num_jobs",
+        "cols": 1
+      },
+      "column_labels": [ "Длительность" ]
+    },
+    {
+      "name": "worker_productivities",
+      "title": "Производительности работников",
+      "description": "Список производительностей работников (P1, P2, ..., Pk)",
+      "data_type": "FLOAT",
+      "data_shape": "DYNAMIC_MATRIX",
+      "default_value": [
+        [ 1.0 ],
+        [ 0.5 ]
+      ],
+      "dimensions": {
+        "rows": "num_workers",
+        "cols": 1
+      },
+      "column_labels": [ "Производительность" ]
+    }
+  ],
+  "outputs": [
+    {
+      "name": "total_duration",
+      "title": "Общее время выполнения",
+      "description": "Минимальное общее время выполнения всех работ",
+      "data_type": "FLOAT",
+      "data_shape": "SCALAR"
+    },
+    {
+      "name": "schedule",
+      "title": "Порядок выполнения",
+      "description": "Порядок выполнения работ",
+      "data_type": "STRING",
+      "data_shape": "SCALAR"
+    },
+    {
+      "name": "schedule_details",
+      "title": "Детали расписания",
+      "description": "Подробное описание выполнения работ",
+      "data_type": "STRING",
+      "data_shape": "SCALAR"
+    },
+    {
+      "name": "gantt_data",
+      "title": "Данные для диаграммы Ганта",
+      "description": "Данные для визуализации расписания",
+      "data_type": "STRING",
+      "data_shape": "SCALAR"
+    }
+  ]
+}

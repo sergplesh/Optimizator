@@ -3,9 +3,9 @@ using System.Collections.Generic;
 using System.Linq;
 using Optimizer.Library;
 
-namespace Optimizator.Algorithms.Lexicographic
+namespace Optimizator.Algorithms.LevelStrategy
 {
-    public static class Lexicographic
+    public static class LevelStrategy
     {
         public static Dictionary<string, object> Main(Dictionary<string, object> parameters)
         {
@@ -13,6 +13,7 @@ namespace Optimizator.Algorithms.Lexicographic
             {
                 // 1. Получаем входные параметры
                 int numJobs = Convert.ToInt32(parameters["num_jobs"]);
+                int numWorkers = Convert.ToInt32(parameters["num_workers"]);
                 var dependenciesRaw = (List<List<object>>)parameters["dependencies"];
 
                 // 2. Создаем граф работ
@@ -30,20 +31,23 @@ namespace Optimizator.Algorithms.Lexicographic
                     {
                         if (Convert.ToInt32(dependenciesRaw[i][j]) == 1)
                         {
-                            graph.AddDependency(jobs[i], jobs[j]);
+                            graph.AddDependency(jobs[j], jobs[i]);
                         }
                     }
                 }
 
-                // 4. Удаляем транзитивные ребра
-                graph.RemoveTransitiveEdges();
+                // 4. Проверяем что граф - дерево к корню
+                if (!graph.IsTreeToRoot())
+                {
+                    throw new ArgumentException("Граф зависимостей не является деревом к корню");
+                }
 
                 // 5. Создаем работников
-                var workers = new List<Worker>
+                var workers = new List<Worker>();
+                for (int i = 0; i < numWorkers; i++)
                 {
-                    new Worker(1) { Name = "Worker 1", Productivity = 1.0 },
-                    new Worker(2) { Name = "Worker 2", Productivity = 1.0 }
-                };
+                    workers.Add(new Worker(i + 1) { Name = $"Worker {i + 1}", Productivity = 1.0 });
+                }
 
                 // 6. Создаем и решаем проблему расписания
                 var problem = new SchedulingProblem(jobs, workers, graph);
@@ -52,7 +56,8 @@ namespace Optimizator.Algorithms.Lexicographic
                 // 7. Форматируем результаты
                 return new Dictionary<string, object>
                 {
-                    ["schedule"] = GetJobOrder(schedule),
+                    ["schedule"] = "",
+                    ["levels"] = "",
                     ["schedule_details"] = FormatScheduleDetails(schedule),
                     ["gantt_data"] = GanttChartGenerator.GenerateChartData(schedule)
                 };
@@ -70,24 +75,23 @@ namespace Optimizator.Algorithms.Lexicographic
 
         private static Schedule CreateSchedule(SchedulingProblem problem)
         {
-            var graph = problem.DependencyGraph ?? new JobGraph(problem.Jobs);
+            var graph = problem.DependencyGraph;
             var jobs = problem.Jobs;
             var workers = problem.Workers;
 
-            // 1. Назначаем приоритеты по лексикографической стратегии
-            AssignLexicographicPriorities(graph, jobs);
+            // 1. Назначаем приоритеты по уровневой стратегии
+            AssignLevelPriorities(graph, jobs);
 
             // 2. Сортируем работы по приоритету (от высокого к низкому)
             var sortedJobs = jobs.OrderByDescending(j => j.Priority).ToList();
 
             // 3. Создаем расписание
             var schedule = new Schedule();
-            var availableWorkers = new Queue<Worker>(workers);
             var workerAvailability = workers.ToDictionary(w => w, w => 0.0);
 
             foreach (var job in sortedJobs)
             {
-                // Для каждой работы создаем один этап (по условию длительность = 1)
+                // Для каждой работы создаем один этап (длительность = 1)
                 var stage = new Stage(1)
                 {
                     Name = $"Stage of Job {job.Id}",
@@ -116,56 +120,54 @@ namespace Optimizator.Algorithms.Lexicographic
             return schedule;
         }
 
-        private static void AssignLexicographicPriorities(JobGraph graph, List<Job> jobs)
+        private static void AssignLevelPriorities(JobGraph graph, List<Job> jobs)
         {
+            var levels = new Dictionary<Job, int>();
             var remainingJobs = new HashSet<Job>(jobs);
-            var assignedPriorities = new Dictionary<Job, int>();
-            int currentPriority = jobs.Count;
+            int currentLevel = 1;
 
-            // 1. Находим стоки (работы без зависимостей)
-            var sinks = graph.GetSources();
+            // 1. Находим корни (стоки) дерева - работы без зависимостей
+            var roots = graph.GetSources();
 
-            // 2. Назначаем первые приоритеты стокам
-            foreach (var sink in sinks.OrderBy(j => j.Id))
+            // 2. Назначаем уровень 1 корневым работам
+            foreach (var root in roots)
             {
-                assignedPriorities[sink] = currentPriority--;
-                remainingJobs.Remove(sink);
+                levels[root] = currentLevel;
+                remainingJobs.Remove(root);
             }
 
-            // 3. Пока есть работы без приоритетов
+            // 3. Распределяем работы по уровням
             while (remainingJobs.Count > 0)
             {
-                // Находим работы, все зависимости которых имеют приоритеты
-                var readyJobs = remainingJobs
-                    .Where(j => graph.GetDependencies(j)
-                        .All(d => assignedPriorities.ContainsKey(d)))
-                    .ToList();
+                currentLevel++;
+                var jobsToAssign = new List<Job>();
 
-                // Для каждой готовой работы создаем строку приоритетов зависимостей
-                var jobsWithPriorities = readyJobs.Select(j => new
+                // Находим работы, все зависимости которых уже имеют уровень
+                foreach (var job in remainingJobs)
                 {
-                    Job = j,
-                    PriorityString = string.Join(",",
-                        graph.GetDependencies(j)
-                            .Select(d => assignedPriorities[d])
-                            .OrderByDescending(p => p))
-                }).ToList();
+                    var dependencies = graph.GetDependencies(job);
+                    if (dependencies.All(d => levels.ContainsKey(d)))
+                    {
+                        jobsToAssign.Add(job);
+                    }
+                }
 
-                // Находим работу с лексикографически наименьшей строкой
-                var nextJob = jobsWithPriorities
-                    .OrderBy(j => j.PriorityString)
-                    .First()
-                    .Job;
-
-                // Назначаем приоритет
-                assignedPriorities[nextJob] = currentPriority--;
-                remainingJobs.Remove(nextJob);
+                // Назначаем уровень этим работам
+                foreach (var job in jobsToAssign)
+                {
+                    // Уровень = максимальный уровень зависимостей + 1
+                    var maxDependencyLevel = graph.GetDependencies(job)
+                        .Max(d => levels[d]);
+                    levels[job] = maxDependencyLevel + 1;
+                    remainingJobs.Remove(job);
+                }
             }
 
-            // Устанавливаем приоритеты в объекты Job
-            foreach (var kvp in assignedPriorities)
+            // Преобразуем уровни в приоритеты (чем выше уровень - тем выше приоритет)
+            var maxLevel = levels.Values.Max();
+            foreach (var job in jobs)
             {
-                kvp.Key.Priority = kvp.Value;
+                job.Priority = maxLevel - levels[job] + 1;
             }
         }
 
@@ -177,12 +179,17 @@ namespace Optimizator.Algorithms.Lexicographic
                 .ToList();
         }
 
+        private static Dictionary<int, int> GetJobLevels(List<Job> jobs)
+        {
+            return jobs.ToDictionary(j => j.Id, j => (int)j.Priority);
+        }
+
         private static string FormatScheduleDetails(Schedule schedule)
         {
             return string.Join("\n", schedule.Items
                 .OrderBy(item => item.StartTime)
                 .Select(item =>
-                    $"{item.Worker.Name}: {item.Job.Name} - " +
+                    $"{item.Worker.Name}: {item.Job.Name} (Priority {item.Job.Priority}) - " +
                     $"Time: {item.StartTime:0.##}-{item.EndTime:0.##}"));
         }
     }

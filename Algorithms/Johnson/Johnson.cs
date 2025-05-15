@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
+using Optimizer.Library;
 
 namespace Optimizator.Algorithms.Johnson
 {
@@ -9,94 +11,189 @@ namespace Optimizator.Algorithms.Johnson
         {
             try
             {
-                // Получаем количество работ
-                int numJobs = Convert.ToInt32(parameters["num_jobs"]);
-
-                // Получаем и преобразуем матрицу времен выполнения
-                var jobTimes = new List<List<double>>();
-                var jobTimesRaw = (List<List<object>>)parameters["job_times"];
-
-                foreach (var rowObj in jobTimesRaw)
+                // 1. Получаем и проверяем входные параметры
+                if (!parameters.TryGetValue("num_jobs", out var numJobsObj) ||
+                    !int.TryParse(numJobsObj.ToString(), out int numJobs) ||
+                    numJobs <= 0)
                 {
-                    var row = new List<double>();
-                    var rowList = rowObj as List<object>;
+                    throw new ArgumentException("Некорректное количество работ");
+                }
 
-                    if (rowList == null)
-                        throw new ArgumentException("Некорректный формат данных матрицы");
+                if (!parameters.TryGetValue("job_times", out var jobTimesObj) ||
+                    !(jobTimesObj is List<List<object>> jobTimesRaw))
+                {
+                    throw new ArgumentException("Некорректный формат данных времен выполнения");
+                }
 
-                    foreach (var item in rowList)
+                // 2. Создаем список работ (Job) с этапами (Stage)
+                var jobs = new List<Job>();
+                for (int i = 0; i < numJobs; i++)
+                {
+                    if (jobTimesRaw[i].Count != 2)
                     {
-                        row.Add(Convert.ToDouble(item));
+                        throw new ArgumentException($"Работа {i + 1} должна содержать ровно 2 этапа");
                     }
-                    jobTimes.Add(row);
-                }
 
-                // Проверка входных данных
-                if (jobTimes.Count != numJobs)
-                {
-                    throw new ArgumentException($"Ожидается {numJobs} работ, но получено {jobTimes.Count}");
-                }
+                    var job = new Job(i + 1) { Name = $"Job {i + 1}" };
 
-                foreach (var row in jobTimes)
-                {
-                    if (row.Count != 2)
+                    // Добавляем этапы
+                    job.AddStage(new Stage(1)
                     {
-                        throw new ArgumentException("Каждая работа должна содержать 2 значения времени выполнения");
+                        Name = $"Stage 1 of Job {i + 1}",
+                        Duration = Convert.ToDouble(jobTimesRaw[i][0]),
+                        StageNumber = 1
+                    });
+
+                    job.AddStage(new Stage(2)
+                    {
+                        Name = $"Stage 2 of Job {i + 1}",
+                        Duration = Convert.ToDouble(jobTimesRaw[i][1]),
+                        StageNumber = 2
+                    });
+
+                    jobs.Add(job);
+                }
+
+                // 3. Создаем работников (Worker) для каждого типа этапа
+                var workers = new List<Worker>
+                {
+                    new Worker(1)
+                    {
+                        Name = "Worker 1 (Stage 1)",
+                        Type = WorkerType.StageSpecific,
+                        SupportedStageType = 1
+                    },
+                    new Worker(2)
+                    {
+                        Name = "Worker 2 (Stage 2)",
+                        Type = WorkerType.StageSpecific,
+                        SupportedStageType = 2
                     }
-                }
+                };
 
-                // Алгоритм Джонсона
-                var jobs = new List<int>();
-                for (int i = 0; i < numJobs; i++) jobs.Add(i);
+                // 4. Создаем и решаем проблему расписания
+                var problem = new SchedulingProblem(jobs, workers);
+                var schedule = CreateJohnsonSchedule(problem);
 
-                // Разделение на группы
-                var group1 = new List<int>();
-                var group2 = new List<int>();
-
-                foreach (var job in jobs)
-                {
-                    if (jobTimes[job][0] <= jobTimes[job][1])
-                        group1.Add(job);
-                    else
-                        group2.Add(job);
-                }
-
-                // Сортировка групп
-                group1.Sort((a, b) => jobTimes[a][0].CompareTo(jobTimes[b][0]));
-                group2.Sort((a, b) => jobTimes[b][1].CompareTo(jobTimes[a][1]));
-
-                // Объединение расписания
-                var schedule = new List<int>();
-                schedule.AddRange(group1);
-                schedule.AddRange(group2);
-
-                // Расчет времени
-                double machine1Time = 0;
-                double machine2Time = 0;
-
-                foreach (var job in schedule)
-                {
-                    machine1Time += jobTimes[job][0];
-                    machine2Time = Math.Max(machine1Time, machine2Time) + jobTimes[job][1];
-                }
-
-                // Преобразование нумерации (начинаем с 1)
-                var resultSchedule = new List<int>();
-                foreach (var job in schedule)
-                {
-                    resultSchedule.Add(job + 1);
-                }
+                // 5. Форматируем результаты
+                var orderedJobs = schedule.Items
+                    .Where(item => item.Stage.StageNumber == 1)
+                    .OrderBy(item => item.StartTime)
+                    .Select(item => item.Job.Id)
+                    .ToList();
 
                 return new Dictionary<string, object>
                 {
-                    ["optimal_time"] = machine2Time,
-                    ["schedule"] = resultSchedule
+                    ["optimal_time"] = schedule.TotalDuration,
+                    ["schedule"] = orderedJobs,
+                    ["schedule_details"] = FormatScheduleDetails(schedule),
+                    ["gantt_data"] = GanttChartGenerator.GenerateChartData(schedule)
                 };
             }
             catch (Exception ex)
             {
-                throw new Exception($"Ошибка выполнения алгоритма: {ex.Message}");
+                return new Dictionary<string, object>
+                {
+                    ["error"] = true,
+                    ["message"] = $"Ошибка выполнения алгоритма: {ex.Message}",
+                    ["stack_trace"] = ex.StackTrace
+                };
             }
+        }
+
+        private static Schedule CreateJohnsonSchedule(SchedulingProblem problem)
+        {
+            ValidateInput(problem);
+
+            // Разделяем работы на две группы
+            var (group1, group2) = SplitAndSortJobs(problem.Jobs);
+
+            // Объединяем группы в оптимальном порядке
+            var orderedJobs = group1.Concat(group2).ToList();
+
+            // Строим расписание
+            return BuildSchedule(problem.Workers, orderedJobs);
+        }
+
+        private static void ValidateInput(SchedulingProblem problem)
+        {
+            if (problem.Workers.Count != 2)
+                throw new ArgumentException("Johnson algorithm requires exactly 2 workers");
+
+            if (problem.Workers.Any(w => w.Type != WorkerType.StageSpecific || !w.SupportedStageType.HasValue))
+                throw new ArgumentException("Both workers must be stage-specific");
+
+            if (problem.Jobs.Any(j => j.Stages.Count != 2))
+                throw new ArgumentException("Each job must contain exactly 2 stages");
+
+            var stageTypes = problem.Workers.Select(w => w.SupportedStageType.Value).Distinct().ToList();
+            if (stageTypes.Count != 2 || stageTypes.Min() != 1 || stageTypes.Max() != 2)
+                throw new ArgumentException("Workers must specialize in stage types 1 and 2");
+        }
+
+        private static (List<Job> group1, List<Job> group2) SplitAndSortJobs(List<Job> jobs)
+        {
+            // Группа 1: где длительность первого этапа <= второго
+            var group1 = jobs
+                .Where(j => j.Stages[0].Duration <= j.Stages[1].Duration)
+                .OrderBy(j => j.Stages[0].Duration)
+                .ToList();
+
+            // Группа 2: остальные работы, сортируем по убыванию длительности второго этапа
+            var group2 = jobs
+                .Where(j => j.Stages[0].Duration > j.Stages[1].Duration)
+                .OrderByDescending(j => j.Stages[1].Duration)
+                .ToList();
+
+            return (group1, group2);
+        }
+
+        private static Schedule BuildSchedule(List<Worker> workers, List<Job> orderedJobs)
+        {
+            var schedule = new Schedule();
+            var stage1Worker = workers.First(w => w.SupportedStageType == 1);
+            var stage2Worker = workers.First(w => w.SupportedStageType == 2);
+
+            double timeStage1 = 0;
+            double timeStage2 = 0;
+
+            foreach (var job in orderedJobs)
+            {
+                var stage1 = job.Stages[0];
+                var stage2 = job.Stages[1];
+
+                // Планируем первый этап
+                var start1 = timeStage1;
+                var end1 = start1 + stage1.Duration;
+                schedule.AddItem(new ScheduleItem(job, stage1, stage1Worker)
+                {
+                    StartTime = start1,
+                    EndTime = end1
+                });
+                timeStage1 = end1;
+
+                // Планируем второй этап
+                var start2 = Math.Max(end1, timeStage2);
+                var end2 = start2 + stage2.Duration;
+                schedule.AddItem(new ScheduleItem(job, stage2, stage2Worker)
+                {
+                    StartTime = start2,
+                    EndTime = end2
+                });
+                timeStage2 = end2;
+            }
+
+            schedule.CalculateTotalDuration();
+            return schedule;
+        }
+
+        private static string FormatScheduleDetails(Schedule schedule)
+        {
+            return string.Join("\n", schedule.Items
+                .OrderBy(item => item.StartTime)
+                .Select(item =>
+                    $"{item.Worker.Name}: {item.Job.Name} ({item.Stage.Name}) - " +
+                    $"Time: {item.StartTime:0.##}-{item.EndTime:0.##}"));
         }
     }
 }

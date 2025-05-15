@@ -1,5 +1,5 @@
-﻿using System.Collections.Generic;
-using System.Text.Json.Serialization;
+﻿using Optimizator.Models;
+using System.Collections.Generic;
 
 namespace Optimizator.Models
 {
@@ -10,9 +10,6 @@ namespace Optimizator.Models
         public string Description { get; set; }
         public List<DataElement> Parameters { get; set; } = new List<DataElement>();
         public List<DataElement> Outputs { get; set; } = new List<DataElement>();
-
-        [JsonPropertyName("output_visualization")]
-        public OutputVisualization OutputVisualization { get; set; }
 
         public AlgorithmDefinition() { }
 

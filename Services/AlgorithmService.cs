@@ -34,7 +34,6 @@ namespace Optimizator.Services
             try
             {
                 var algorithm = _algorithmCollection.GetAlgorithm(name);
-                //var algorithm = _algorithmCollection.GetAlgorithm(name);
                 var preparedParameters = PrepareParameters(parameters, algorithm);
 
                 var finalParameters = new Dictionary<string, object>();
@@ -58,16 +57,6 @@ namespace Optimizator.Services
                 }
 
                 //ValidateOutputs(algorithm, resultDict);
-                //return resultDict;
-                if (algorithm.OutputVisualization != null)
-                {
-                    resultDict["_visualization"] = new
-                    {
-                        type = algorithm.OutputVisualization.Type,
-                        target = algorithm.OutputVisualization.TargetOutput
-                    };
-                }
-
                 return resultDict;
             }
             catch (Exception ex)

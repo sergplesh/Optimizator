@@ -1,4 +1,5 @@
 using Microsoft.OpenApi.Models;
+using Optimizator.Services;
 using Optimizator.Models;
 using Optimizator.Services;
 
@@ -65,7 +66,7 @@ namespace Optimizator
             if (app.Environment.IsDevelopment())
             {
                 app.UseSwagger();
-                app.UseSwagger();
+                app.UseSwaggerUI();
             }
 
             app.UseHttpsRedirection();

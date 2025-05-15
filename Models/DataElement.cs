@@ -82,12 +82,4 @@ namespace Optimizator.Models
             DefaultValue = defaultValue;
         }
     }
-    public class OutputVisualization
-    {
-        [JsonPropertyName("type")]
-        public string Type { get; set; }  // "gantt", "graph", etc.
-
-        [JsonPropertyName("target_output")]
-        public string TargetOutput { get; set; }  // Имя выходного параметра, который нужно визуализировать
-    }
 }

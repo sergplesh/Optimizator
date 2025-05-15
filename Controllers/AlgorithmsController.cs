@@ -44,23 +44,6 @@ namespace Optimizator.Controllers
             }
         }
 
-        //[HttpPost("{name}")]
-        //public IActionResult ExecuteAlgorithm(string name, [FromBody] ExecutionRequest request)
-        //{
-        //    try
-        //    {
-        //        var parameters = request.Parameters.ToDictionary(
-        //            p => p.Name,
-        //            p => (object)p.Value);
-
-        //        var result = _algorithmService.ExecuteAlgorithm(name, parameters);
-        //        return Ok(result);
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        return BadRequest(new { message = ex.Message });
-        //    }
-        //}
         [HttpPost("{name}")]
         public IActionResult ExecuteAlgorithm(string name, [FromBody] ExecutionRequest request)
         {
