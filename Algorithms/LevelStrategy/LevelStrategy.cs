@@ -56,8 +56,8 @@ namespace Optimizator.Algorithms.LevelStrategy
                 // 7. Форматируем результаты
                 return new Dictionary<string, object>
                 {
-                    ["schedule"] = "",
-                    ["levels"] = "",
+                    ["schedule"] = GetJobOrder(schedule),
+                    //["levels"] = GetJobLevels(problem.Jobs),
                     ["schedule_details"] = FormatScheduleDetails(schedule),
                     ["gantt_data"] = GanttChartGenerator.GenerateChartData(schedule)
                 };
@@ -73,6 +73,52 @@ namespace Optimizator.Algorithms.LevelStrategy
             }
         }
 
+        //private static Schedule CreateSchedule(SchedulingProblem problem)
+        //{
+        //    var graph = problem.DependencyGraph;
+        //    var jobs = problem.Jobs;
+        //    var workers = problem.Workers;
+
+        //    // 1. Назначаем приоритеты по уровневой стратегии
+        //    AssignLevelPriorities(graph, jobs);
+
+        //    // 2. Сортируем работы по приоритету (от высокого к низкому)
+        //    var sortedJobs = jobs.OrderByDescending(j => j.Priority).ToList();
+
+        //    // 3. Создаем расписание
+        //    var schedule = new Schedule();
+        //    var workerAvailability = workers.ToDictionary(w => w, w => 0.0);
+
+        //    foreach (var job in sortedJobs)
+        //    {
+        //        // Для каждой работы создаем один этап (длительность = 1)
+        //        var stage = new Stage(1)
+        //        {
+        //            Name = $"Stage of Job {job.Id}",
+        //            Duration = 1,
+        //            StageNumber = 1
+        //        };
+
+        //        // Находим самого раннего доступного работника
+        //        var worker = workerAvailability
+        //            .OrderBy(kv => kv.Value)
+        //            .First().Key;
+
+        //        var startTime = workerAvailability[worker];
+        //        var endTime = startTime + stage.Duration;
+
+        //        schedule.AddItem(new ScheduleItem(job, stage, worker)
+        //        {
+        //            StartTime = startTime,
+        //            EndTime = endTime
+        //        });
+
+        //        workerAvailability[worker] = endTime;
+        //    }
+
+        //    schedule.CalculateTotalDuration();
+        //    return schedule;
+        //}
         private static Schedule CreateSchedule(SchedulingProblem problem)
         {
             var graph = problem.DependencyGraph;
@@ -88,32 +134,47 @@ namespace Optimizator.Algorithms.LevelStrategy
             // 3. Создаем расписание
             var schedule = new Schedule();
             var workerAvailability = workers.ToDictionary(w => w, w => 0.0);
+            var completedJobs = new HashSet<Job>();
 
-            foreach (var job in sortedJobs)
+            while (completedJobs.Count < jobs.Count)
             {
-                // Для каждой работы создаем один этап (длительность = 1)
-                var stage = new Stage(1)
+                // Находим задачи, готовые к выполнению (все зависимости выполнены)
+                var readyJobs = sortedJobs
+                    .Where(j => !completedJobs.Contains(j))
+                    .Where(j => !graph.GetDependencies(j).Any() ||
+                                graph.GetDependencies(j).All(d => completedJobs.Contains(d)))
+                    .ToList();
+
+                if (!readyJobs.Any())
+                    throw new InvalidOperationException("Обнаружен deadlock - нет задач для выполнения");
+
+                // Распределяем готовые задачи по свободным работникам
+                foreach (var job in readyJobs)
                 {
-                    Name = $"Stage of Job {job.Id}",
-                    Duration = 1,
-                    StageNumber = 1
-                };
+                    // Находим самого раннего доступного работника
+                    var worker = workerAvailability
+                        .OrderBy(kv => kv.Value)
+                        .First().Key;
 
-                // Находим самого раннего доступного работника
-                var worker = workerAvailability
-                    .OrderBy(kv => kv.Value)
-                    .First().Key;
+                    var stage = new Stage(1)
+                    {
+                        Name = $"Stage of Job {job.Id}",
+                        Duration = 1,
+                        StageNumber = 1
+                    };
 
-                var startTime = workerAvailability[worker];
-                var endTime = startTime + stage.Duration;
+                    var startTime = workerAvailability[worker];
+                    var endTime = startTime + stage.Duration;
 
-                schedule.AddItem(new ScheduleItem(job, stage, worker)
-                {
-                    StartTime = startTime,
-                    EndTime = endTime
-                });
+                    schedule.AddItem(new ScheduleItem(job, stage, worker)
+                    {
+                        StartTime = startTime,
+                        EndTime = endTime
+                    });
 
-                workerAvailability[worker] = endTime;
+                    workerAvailability[worker] = endTime;
+                    completedJobs.Add(job);
+                }
             }
 
             schedule.CalculateTotalDuration();

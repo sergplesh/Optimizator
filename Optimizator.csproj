@@ -15,7 +15,7 @@
 
   <ItemGroup>
     <Reference Include="Optimizer.Library">
-      <HintPath>..\..\Optimizer.Library\Optimizer.Library\bin\Debug\net8.0\Optimizer.Library.dll</HintPath>
+      <HintPath>..\Optimizer.Library\Optimizer.Library\bin\Debug\net8.0\Optimizer.Library.dll</HintPath>
     </Reference>
   </ItemGroup>
 

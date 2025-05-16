@@ -34,19 +34,19 @@ namespace Optimizator.Algorithms.Johnson
                         throw new ArgumentException($"Работа {i + 1} должна содержать ровно 2 этапа");
                     }
 
-                    var job = new Job(i + 1) { Name = $"Job {i + 1}" };
+                    var job = new Job(i + 1) { Name = $"Работа {i + 1}" };
 
                     // Добавляем этапы
                     job.AddStage(new Stage(1)
                     {
-                        Name = $"Stage 1 of Job {i + 1}",
+                        Name = $"Этап 1 Работы {i + 1}",
                         Duration = Convert.ToDouble(jobTimesRaw[i][0]),
                         StageNumber = 1
                     });
 
                     job.AddStage(new Stage(2)
                     {
-                        Name = $"Stage 2 of Job {i + 1}",
+                        Name = $"Этап 2 Работы {i + 1}",
                         Duration = Convert.ToDouble(jobTimesRaw[i][1]),
                         StageNumber = 2
                     });
@@ -59,13 +59,13 @@ namespace Optimizator.Algorithms.Johnson
                 {
                     new Worker(1)
                     {
-                        Name = "Worker 1 (Stage 1)",
+                        Name = "Работник 1 (Этап 1)",
                         Type = WorkerType.StageSpecific,
                         SupportedStageType = 1
                     },
                     new Worker(2)
                     {
-                        Name = "Worker 2 (Stage 2)",
+                        Name = "Работник 2 (Этап 2)",
                         Type = WorkerType.StageSpecific,
                         SupportedStageType = 2
                     }
@@ -86,7 +86,6 @@ namespace Optimizator.Algorithms.Johnson
                 {
                     ["optimal_time"] = schedule.TotalDuration,
                     ["schedule"] = orderedJobs,
-                    ["schedule_details"] = FormatScheduleDetails(schedule),
                     ["gantt_data"] = GanttChartGenerator.GenerateChartData(schedule)
                 };
             }
@@ -95,8 +94,7 @@ namespace Optimizator.Algorithms.Johnson
                 return new Dictionary<string, object>
                 {
                     ["error"] = true,
-                    ["message"] = $"Ошибка выполнения алгоритма: {ex.Message}",
-                    ["stack_trace"] = ex.StackTrace
+                    ["message"] = $"Ошибка выполнения алгоритма: {ex.Message}"
                 };
             }
         }
@@ -118,17 +116,20 @@ namespace Optimizator.Algorithms.Johnson
         private static void ValidateInput(SchedulingProblem problem)
         {
             if (problem.Workers.Count != 2)
-                throw new ArgumentException("Johnson algorithm requires exactly 2 workers");
+                throw new ArgumentException("Алгоритм Джонсона принимает на вход 2 работников");
 
             if (problem.Workers.Any(w => w.Type != WorkerType.StageSpecific || !w.SupportedStageType.HasValue))
-                throw new ArgumentException("Both workers must be stage-specific");
+                throw new ArgumentException("Оба работника должны быть специализированны");
+
+            if (problem.Jobs.Any(j => j.Stages.Any(t => t.Duration < 0)))
+                throw new ArgumentException("Каждая работа должна иметь неотрицательную длительность");
 
             if (problem.Jobs.Any(j => j.Stages.Count != 2))
-                throw new ArgumentException("Each job must contain exactly 2 stages");
+                throw new ArgumentException("Каждая работа должна содержать ровно два этапа");
 
             var stageTypes = problem.Workers.Select(w => w.SupportedStageType.Value).Distinct().ToList();
             if (stageTypes.Count != 2 || stageTypes.Min() != 1 || stageTypes.Max() != 2)
-                throw new ArgumentException("Workers must specialize in stage types 1 and 2");
+                throw new ArgumentException("Один работник должен специализироваться на 1 этапе, другой - на втором");
         }
 
         private static (List<Job> group1, List<Job> group2) SplitAndSortJobs(List<Job> jobs)
@@ -185,15 +186,6 @@ namespace Optimizator.Algorithms.Johnson
 
             schedule.CalculateTotalDuration();
             return schedule;
-        }
-
-        private static string FormatScheduleDetails(Schedule schedule)
-        {
-            return string.Join("\n", schedule.Items
-                .OrderBy(item => item.StartTime)
-                .Select(item =>
-                    $"{item.Worker.Name}: {item.Job.Name} ({item.Stage.Name}) - " +
-                    $"Time: {item.StartTime:0.##}-{item.EndTime:0.##}"));
         }
     }
 }
