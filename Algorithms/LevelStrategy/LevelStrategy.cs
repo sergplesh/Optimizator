@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using Optimizer.Library;
@@ -20,7 +21,7 @@ namespace Optimizator.Algorithms.LevelStrategy
                 var jobs = new List<Job>();
                 for (int i = 0; i < numJobs; i++)
                 {
-                    jobs.Add(new Job(i + 1) { Name = $"Job {i + 1}" });
+                    jobs.Add(new Job(i + 1) { Name = $"Работа {i + 1}" });
                 }
 
                 // 3. Создаем граф зависимостей
@@ -36,6 +37,17 @@ namespace Optimizator.Algorithms.LevelStrategy
                     }
                 }
 
+                //foreach (var j in graph.Jobs)
+                //{
+                //    Console.WriteLine();
+                //    Console.WriteLine(j.Name);
+                //    if (graph._dependencies.ContainsKey(j))
+                //    {
+                //        foreach (var g in graph._dependencies[j]) Console.WriteLine(g.Name);
+                //    }
+                //    Console.WriteLine();
+                //}
+
                 // 4. Проверяем что граф - дерево к корню
                 if (!graph.IsTreeToRoot())
                 {
@@ -46,7 +58,7 @@ namespace Optimizator.Algorithms.LevelStrategy
                 var workers = new List<Worker>();
                 for (int i = 0; i < numWorkers; i++)
                 {
-                    workers.Add(new Worker(i + 1) { Name = $"Worker {i + 1}", Productivity = 1.0 });
+                    workers.Add(new Worker(i + 1) { Name = $"Работник {i + 1}", Productivity = 1.0 });
                 }
 
                 // 6. Создаем и решаем проблему расписания
@@ -57,8 +69,8 @@ namespace Optimizator.Algorithms.LevelStrategy
                 return new Dictionary<string, object>
                 {
                     ["schedule"] = GetJobOrder(schedule),
-                    //["levels"] = GetJobLevels(problem.Jobs),
-                    ["schedule_details"] = FormatScheduleDetails(schedule),
+                    ["levels"] = GetJobLevels(problem.Jobs),
+                    ["levelsname"] = Ge(problem.Jobs),
                     ["gantt_data"] = GanttChartGenerator.GenerateChartData(schedule)
                 };
             }
@@ -67,58 +79,10 @@ namespace Optimizator.Algorithms.LevelStrategy
                 return new Dictionary<string, object>
                 {
                     ["error"] = true,
-                    ["message"] = $"Ошибка выполнения алгоритма: {ex.Message}",
-                    ["stack_trace"] = ex.StackTrace
+                    ["message"] = $"Ошибка выполнения алгоритма: {ex.Message}"
                 };
             }
         }
-
-        //private static Schedule CreateSchedule(SchedulingProblem problem)
-        //{
-        //    var graph = problem.DependencyGraph;
-        //    var jobs = problem.Jobs;
-        //    var workers = problem.Workers;
-
-        //    // 1. Назначаем приоритеты по уровневой стратегии
-        //    AssignLevelPriorities(graph, jobs);
-
-        //    // 2. Сортируем работы по приоритету (от высокого к низкому)
-        //    var sortedJobs = jobs.OrderByDescending(j => j.Priority).ToList();
-
-        //    // 3. Создаем расписание
-        //    var schedule = new Schedule();
-        //    var workerAvailability = workers.ToDictionary(w => w, w => 0.0);
-
-        //    foreach (var job in sortedJobs)
-        //    {
-        //        // Для каждой работы создаем один этап (длительность = 1)
-        //        var stage = new Stage(1)
-        //        {
-        //            Name = $"Stage of Job {job.Id}",
-        //            Duration = 1,
-        //            StageNumber = 1
-        //        };
-
-        //        // Находим самого раннего доступного работника
-        //        var worker = workerAvailability
-        //            .OrderBy(kv => kv.Value)
-        //            .First().Key;
-
-        //        var startTime = workerAvailability[worker];
-        //        var endTime = startTime + stage.Duration;
-
-        //        schedule.AddItem(new ScheduleItem(job, stage, worker)
-        //        {
-        //            StartTime = startTime,
-        //            EndTime = endTime
-        //        });
-
-        //        workerAvailability[worker] = endTime;
-        //    }
-
-        //    schedule.CalculateTotalDuration();
-        //    return schedule;
-        //}
         private static Schedule CreateSchedule(SchedulingProblem problem)
         {
             var graph = problem.DependencyGraph;
@@ -127,9 +91,10 @@ namespace Optimizator.Algorithms.LevelStrategy
 
             // 1. Назначаем приоритеты по уровневой стратегии
             AssignLevelPriorities(graph, jobs);
+            foreach (var j in jobs) Console.WriteLine(j.Name);
 
-            // 2. Сортируем работы по приоритету (от высокого к низкому)
-            var sortedJobs = jobs.OrderByDescending(j => j.Priority).ToList();
+            // 2. Сортируем работы по приоритету
+            var sortedJobs = jobs.OrderBy(j => j.Priority).ToList();
 
             // 3. Создаем расписание
             var schedule = new Schedule();
@@ -141,12 +106,19 @@ namespace Optimizator.Algorithms.LevelStrategy
                 // Находим задачи, готовые к выполнению (все зависимости выполнены)
                 var readyJobs = sortedJobs
                     .Where(j => !completedJobs.Contains(j))
-                    .Where(j => !graph.GetDependencies(j).Any() ||
-                                graph.GetDependencies(j).All(d => completedJobs.Contains(d)))
+                    .Where(j => graph.GetDependencies(j).All(d => completedJobs.Contains(d)))
                     .ToList();
 
                 if (!readyJobs.Any())
                     throw new InvalidOperationException("Обнаружен deadlock - нет задач для выполнения");
+
+                var lastTime= workerAvailability
+                        .OrderBy(kv => kv.Value)
+                        .Last().Value;
+                foreach (var w in workerAvailability.Keys)
+                {
+                    workerAvailability[w] = lastTime;
+                }
 
                 // Распределяем готовые задачи по свободным работникам
                 foreach (var job in readyJobs)
@@ -158,7 +130,7 @@ namespace Optimizator.Algorithms.LevelStrategy
 
                     var stage = new Stage(1)
                     {
-                        Name = $"Stage of Job {job.Id}",
+                        Name = $"Этап работы {job.Id}",
                         Duration = 1,
                         StageNumber = 1
                     };
@@ -188,25 +160,26 @@ namespace Optimizator.Algorithms.LevelStrategy
             int currentLevel = 1;
 
             // 1. Находим корни (стоки) дерева - работы без зависимостей
-            var roots = graph.GetSources();
+            var roots = graph.GetRoots();
 
-            // 2. Назначаем уровень 1 корневым работам
+            // 2. Назначаем уровень корневым работам
             foreach (var root in roots)
             {
-                levels[root] = currentLevel;
+                levels[root] = 1;
+                root.Priority = currentLevel;
+                currentLevel++;
                 remainingJobs.Remove(root);
             }
 
             // 3. Распределяем работы по уровням
             while (remainingJobs.Count > 0)
             {
-                currentLevel++;
                 var jobsToAssign = new List<Job>();
 
                 // Находим работы, все зависимости которых уже имеют уровень
                 foreach (var job in remainingJobs)
                 {
-                    var dependencies = graph.GetDependencies(job);
+                    var dependencies = jobs.Where(j => graph.GetDependencies(j).Contains(job)).ToList();
                     if (dependencies.All(d => levels.ContainsKey(d)))
                     {
                         jobsToAssign.Add(job);
@@ -217,18 +190,13 @@ namespace Optimizator.Algorithms.LevelStrategy
                 foreach (var job in jobsToAssign)
                 {
                     // Уровень = максимальный уровень зависимостей + 1
-                    var maxDependencyLevel = graph.GetDependencies(job)
-                        .Max(d => levels[d]);
+                    var maxDependencyLevel = jobs.Where(j => graph.GetDependencies(j).Contains(job))
+                        .ToList().Max(d => levels[d]);
                     levels[job] = maxDependencyLevel + 1;
+                    job.Priority = currentLevel;
+                    currentLevel++;
                     remainingJobs.Remove(job);
                 }
-            }
-
-            // Преобразуем уровни в приоритеты (чем выше уровень - тем выше приоритет)
-            var maxLevel = levels.Values.Max();
-            foreach (var job in jobs)
-            {
-                job.Priority = maxLevel - levels[job] + 1;
             }
         }
 
@@ -240,18 +208,31 @@ namespace Optimizator.Algorithms.LevelStrategy
                 .ToList();
         }
 
-        private static Dictionary<int, int> GetJobLevels(List<Job> jobs)
-        {
-            return jobs.ToDictionary(j => j.Id, j => (int)j.Priority);
-        }
+        //private static Dictionary<int, int> GetJobLevels(List<Job> jobs)
+        //{
+        //    return jobs.ToDictionary(j => j.Id, j => (int)j.Priority);
+        //}
 
-        private static string FormatScheduleDetails(Schedule schedule)
+        private static List<int> GetJobLevels(List<Job> jobs)
         {
-            return string.Join("\n", schedule.Items
-                .OrderBy(item => item.StartTime)
-                .Select(item =>
-                    $"{item.Worker.Name}: {item.Job.Name} (Priority {item.Job.Priority}) - " +
-                    $"Time: {item.StartTime:0.##}-{item.EndTime:0.##}"));
+            List<int> s = new List<int>();
+            List<Job> sortedList = jobs.OrderBy(si => si.Name).ToList();
+            foreach (var pr in sortedList)
+            {
+                s.Add((int)pr.Priority);
+            }
+            return s;
+        }
+        private static List<string> Ge(List<Job> jobs)
+        {
+            List<Job> sortedList = jobs.OrderBy(si => si.Name).ToList();
+
+            List<string> s = new List<string>();
+            foreach (var pr in sortedList)
+            {
+                s.Add(pr.Name);
+            }
+            return s;
         }
     }
 }

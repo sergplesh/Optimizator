@@ -123,7 +123,7 @@ namespace Optimizator.Algorithms.Lexicographic
             int currentPriority = jobs.Count;
 
             // 1. Находим стоки (работы без зависимостей)
-            var sinks = graph.GetSources();
+            var sinks = graph.GetRoots();
 
             // 2. Назначаем первые приоритеты стокам
             foreach (var sink in sinks.OrderBy(j => j.Id))

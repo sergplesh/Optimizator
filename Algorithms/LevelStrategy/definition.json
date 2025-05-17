@@ -23,7 +23,7 @@
     {
       "name": "dependencies",
       "title": "Матрица зависимостей",
-      "description": "Матрица N×N, где 1 означает зависимость работы i от j",
+      "description": "Матрица N×N, где 1 означает зависимость работы в строке от работы в столбце",
       "data_type": "INT",
       "data_shape": "DYNAMIC_MATRIX",
       "default_value": [
@@ -50,8 +50,15 @@
       "name": "levels",
       "title": "Уровни работ",
       "description": "Уровни приоритета для каждой работы",
+      "data_type": "INT",
+      "data_shape": "LIST"
+    },
+    {
+      "name": "levelsname",
+      "title": "НАЗВАНИЯ Уровни работ",
+      "description": "НАЗВАНИЯ Уровни приоритета для каждой работы",
       "data_type": "STRING",
-      "data_shape": "SCALAR"
+      "data_shape": "LIST"
     },
     {
       "name": "gantt_chart",
