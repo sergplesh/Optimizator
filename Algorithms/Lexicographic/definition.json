@@ -34,8 +34,8 @@
       "name": "schedule",
       "title": "Оптимальное расписание",
       "description": "Порядок выполнения работ",
-      "data_type": "STRING",
-      "data_shape": "SCALAR"
+      "data_type": "INT",
+      "data_shape": "LIST"
     },
     {
       "name": "gantt_chart",

@@ -84,7 +84,7 @@ namespace Optimizator.Algorithms.Johnson
 
                 return new Dictionary<string, object>
                 {
-                    ["optimal_time"] = schedule.TotalDuration,
+                    //["optimal_time"] = schedule.TotalDuration,
                     ["schedule"] = orderedJobs,
                     ["gantt_data"] = GanttChartGenerator.GenerateChartData(schedule)
                 };

@@ -19,7 +19,7 @@ namespace Optimizator.Algorithms.Lexicographic
                 var jobs = new List<Job>();
                 for (int i = 0; i < numJobs; i++)
                 {
-                    jobs.Add(new Job(i + 1) { Name = $"Job {i + 1}" });
+                    jobs.Add(new Job(i + 1) { Name = $"Работа {i + 1}" });
                 }
 
                 // 3. Создаем граф зависимостей
@@ -30,7 +30,7 @@ namespace Optimizator.Algorithms.Lexicographic
                     {
                         if (Convert.ToInt32(dependenciesRaw[i][j]) == 1)
                         {
-                            graph.AddDependency(jobs[i], jobs[j]);
+                            graph.AddDependency(jobs[j], jobs[i]);
                         }
                     }
                 }
@@ -41,8 +41,8 @@ namespace Optimizator.Algorithms.Lexicographic
                 // 5. Создаем работников
                 var workers = new List<Worker>
                 {
-                    new Worker(1) { Name = "Worker 1", Productivity = 1.0 },
-                    new Worker(2) { Name = "Worker 2", Productivity = 1.0 }
+                    new Worker(1) { Name = "Работник 1", Productivity = 1.0 },
+                    new Worker(2) { Name = "Работник 2", Productivity = 1.0 }
                 };
 
                 // 6. Создаем и решаем проблему расписания
@@ -53,7 +53,7 @@ namespace Optimizator.Algorithms.Lexicographic
                 return new Dictionary<string, object>
                 {
                     ["schedule"] = GetJobOrder(schedule),
-                    ["schedule_details"] = FormatScheduleDetails(schedule),
+                    //["schedule_details"] = FormatScheduleDetails(schedule),
                     ["gantt_data"] = GanttChartGenerator.GenerateChartData(schedule)
                 };
             }
@@ -62,8 +62,7 @@ namespace Optimizator.Algorithms.Lexicographic
                 return new Dictionary<string, object>
                 {
                     ["error"] = true,
-                    ["message"] = $"Ошибка выполнения алгоритма: {ex.Message}",
-                    ["stack_trace"] = ex.StackTrace
+                    ["message"] = $"Ошибка выполнения алгоритма: {ex.Message}"
                 };
             }
         }
@@ -80,36 +79,65 @@ namespace Optimizator.Algorithms.Lexicographic
             // 2. Сортируем работы по приоритету (от высокого к низкому)
             var sortedJobs = jobs.OrderByDescending(j => j.Priority).ToList();
 
-            // 3. Создаем расписание
+            //// 3. Создаем расписание
             var schedule = new Schedule();
-            var availableWorkers = new Queue<Worker>(workers);
             var workerAvailability = workers.ToDictionary(w => w, w => 0.0);
+            var completedJobs = new HashSet<Job>();
 
-            foreach (var job in sortedJobs)
+            while (completedJobs.Count < jobs.Count)
             {
-                // Для каждой работы создаем один этап (по условию длительность = 1)
-                var stage = new Stage(1)
+                // Находим задачи, готовые к выполнению (все зависимости выполнены)
+                var readyJobs = sortedJobs
+                    .Where(j => !completedJobs.Contains(j))
+                    .Where(j => graph.GetDependencies(j).All(d => completedJobs.Contains(d)))
+                    .ToList();
+
+                if (!readyJobs.Any())
+                    throw new InvalidOperationException("Обнаружен deadlock - нет задач для выполнения");
+
+                var lastTime = workerAvailability
+                        .OrderBy(kv => kv.Value)
+                        .Last().Value;
+                foreach (var w in workerAvailability.Keys)
                 {
-                    Name = $"Stage of Job {job.Id}",
-                    Duration = 1,
-                    StageNumber = 1
-                };
+                    workerAvailability[w] = lastTime;
+                }
 
-                // Находим самого раннего доступного работника
-                var worker = workerAvailability
-                    .OrderBy(kv => kv.Value)
-                    .First().Key;
-
-                var startTime = workerAvailability[worker];
-                var endTime = startTime + stage.Duration;
-
-                schedule.AddItem(new ScheduleItem(job, stage, worker)
+                int count = 0;
+                if (readyJobs.Count < workerAvailability.Count)
                 {
-                    StartTime = startTime,
-                    EndTime = endTime
-                });
+                    count = readyJobs.Count;
+                }
+                else count = workerAvailability.Count;
 
-                workerAvailability[worker] = endTime;
+                // Распределяем готовые задачи по свободным работникам
+                for (int i = 0; i < count; i++)
+                {
+                    var job = readyJobs[i];
+                    // Находим самого раннего доступного работника
+                    var worker = workerAvailability
+                        .OrderBy(kv => kv.Value)
+                        .First().Key;
+
+                    var stage = new Stage(1)
+                    {
+                        Name = $"Этап работы {job.Id}",
+                        Duration = 1,
+                        StageNumber = 1
+                    };
+
+                    var startTime = workerAvailability[worker];
+                    var endTime = startTime + stage.Duration;
+
+                    schedule.AddItem(new ScheduleItem(job, stage, worker)
+                    {
+                        StartTime = startTime,
+                        EndTime = endTime
+                    });
+
+                    workerAvailability[worker] = endTime;
+                    completedJobs.Add(job);
+                }
             }
 
             schedule.CalculateTotalDuration();
@@ -120,7 +148,7 @@ namespace Optimizator.Algorithms.Lexicographic
         {
             var remainingJobs = new HashSet<Job>(jobs);
             var assignedPriorities = new Dictionary<Job, int>();
-            int currentPriority = jobs.Count;
+            int currentPriority = 1;
 
             // 1. Находим стоки (работы без зависимостей)
             var sinks = graph.GetRoots();
@@ -128,37 +156,35 @@ namespace Optimizator.Algorithms.Lexicographic
             // 2. Назначаем первые приоритеты стокам
             foreach (var sink in sinks.OrderBy(j => j.Id))
             {
-                assignedPriorities[sink] = currentPriority--;
+                assignedPriorities[sink] = currentPriority;
+                currentPriority++;
                 remainingJobs.Remove(sink);
             }
 
             // 3. Пока есть работы без приоритетов
             while (remainingJobs.Count > 0)
             {
-                // Находим работы, все зависимости которых имеют приоритеты
-                var readyJobs = remainingJobs
-                    .Where(j => graph.GetDependencies(j)
-                        .All(d => assignedPriorities.ContainsKey(d)))
-                    .ToList();
+                var jobsToAssign = graph.GetToAssign(remainingJobs, assignedPriorities);
 
                 // Для каждой готовой работы создаем строку приоритетов зависимостей
-                var jobsWithPriorities = readyJobs.Select(j => new
+                var jobsWithPriorities = jobsToAssign.Select(jFrom => new
                 {
-                    Job = j,
+                    Job = jFrom,
                     PriorityString = string.Join(",",
-                        graph.GetDependencies(j)
+                        assignedPriorities.Keys.Where(jTo => graph.GetDependencies(jTo).Contains(jFrom))
                             .Select(d => assignedPriorities[d])
                             .OrderByDescending(p => p))
                 }).ToList();
 
                 // Находим работу с лексикографически наименьшей строкой
                 var nextJob = jobsWithPriorities
-                    .OrderBy(j => j.PriorityString)
+                    .OrderBy(j => j.PriorityString, new NumericStringComparer())
                     .First()
                     .Job;
 
-                // Назначаем приоритет
-                assignedPriorities[nextJob] = currentPriority--;
+                //Назначаем приоритет
+                assignedPriorities[nextJob] = currentPriority;
+                currentPriority++;
                 remainingJobs.Remove(nextJob);
             }
 
@@ -177,13 +203,42 @@ namespace Optimizator.Algorithms.Lexicographic
                 .ToList();
         }
 
-        private static string FormatScheduleDetails(Schedule schedule)
+        //private static string FormatScheduleDetails(Schedule schedule)
+        //{
+        //    return string.Join("\n", schedule.Items
+        //        .OrderBy(item => item.StartTime)
+        //        .Select(item =>
+        //            $"{item.Worker.Name}: {item.Job.Name} - " +
+        //            $"Time: {item.StartTime:0.##}-{item.EndTime:0.##}"));
+        //}
+    }
+
+    public class NumericStringComparer : IComparer<string>
+    {
+        public int Compare(string x, string y)
         {
-            return string.Join("\n", schedule.Items
-                .OrderBy(item => item.StartTime)
-                .Select(item =>
-                    $"{item.Worker.Name}: {item.Job.Name} - " +
-                    $"Time: {item.StartTime:0.##}-{item.EndTime:0.##}"));
+            if (x == y) return 0;
+            if (x == null) return -1;
+            if (y == null) return 1;
+
+            string[] partsX = x.Split(',');
+            string[] partsY = y.Split(',');
+
+            int maxLength = Math.Max(partsX.Length, partsY.Length);
+
+            for (int i = 0; i < maxLength; i++)
+            {
+                if (i >= partsX.Length) return -1; // x короче => x должен быть раньше (если остальные части равны)
+                if (i >= partsY.Length) return 1;  // y короче => y должен быть раньше
+
+                int partX = int.Parse(partsX[i]);
+                int partY = int.Parse(partsY[i]);
+
+                if (partX != partY)
+                    return partX.CompareTo(partY);
+            }
+
+            return 0; // если все части равны (но строки разные, хотя такого быть не должно)
         }
     }
 }
