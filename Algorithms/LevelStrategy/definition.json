@@ -47,7 +47,7 @@
       "data_shape": "LIST"
     },
     {
-      "name": "gantt_chart",
+      "name": "gantt_data",
       "title": "Диаграмма Ганта",
       "description": "Распределение работ по исполнителям",
       "data_type": "STRING",

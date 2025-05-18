@@ -123,7 +123,7 @@ namespace Optimizator.Algorithms.Lexicographic
                     {
                         Name = $"Этап работы {job.Id}",
                         Duration = 1,
-                        StageNumber = 1
+                        //StageNumber = 1
                     };
 
                     var startTime = workerAvailability[worker];

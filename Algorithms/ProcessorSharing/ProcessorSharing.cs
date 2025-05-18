@@ -1,279 +1,344 @@
-﻿//using System;
-//using System.Collections.Generic;
-//using System.Linq;
-//using Optimizer.Library;
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using Optimizer.Library;
 
-//namespace Optimizator.Algorithms.ProcessorSharing
-//{
-//    public static class ProcessorSharing
-//    {
-//        public static Dictionary<string, object> Main(Dictionary<string, object> parameters)
-//        {
-//            try
-//            {
-//                // Валидация входных параметров
-//                ValidateParameters(parameters);
+namespace Optimizator.Algorithms.ProcessorSharing
+{
+    public static class ProcessorSharing
+    {
+        public static Dictionary<string, object> Main(Dictionary<string, object> parameters)
+        {
+            try
+            {
+                // 1. Подготовка данных
+                var (jobs, workers) = PrepareData(parameters);
 
-//                // Получаем и подготавливаем данные
-//                var (jobs, workers) = PrepareData(parameters);
+                // 2. Построение расписания
+                var schedule = BuildSchedule(jobs, workers);
 
-//                // Создаем и решаем проблему расписания
-//                var schedule = CreateSchedule(jobs, workers);
+                foreach (var j in jobs) Console.WriteLine(j.Name);
+                foreach (var j in jobs) Console.WriteLine(j.RemainingDuration);
+                foreach (var w in workers) Console.WriteLine(w.Name);
+                foreach (var w in workers) Console.WriteLine(w.Productivity);
 
-//                // Форматируем результаты
-//                return FormatResults(schedule);
-//            }
-//            catch (Exception ex)
-//            {
-//                // Логируем ошибку для диагностики
-//                Console.Error.WriteLine($"Ошибка в ProcessorSharing: {ex}");
+                // 3. Форматирование результатов
+                return FormatResults(schedule);
+            }
+            catch (Exception ex)
+            {
+                return new Dictionary<string, object>
+                {
+                    ["error"] = true,
+                    ["message"] = ex.Message
+                };
+            }
+        }
 
-//                // Возвращаем понятное сообщение об ошибке пользователю
-//                return new Dictionary<string, object>
-//                {
-//                    ["error"] = true,
-//                    ["message"] = GetUserFriendlyErrorMessage(ex),
-//                    ["details"] = ex.Message,
-//                    ["stack_trace"] = ex.StackTrace
-//                };
-//            }
-//        }
+        private static (List<Job>, List<Worker>) PrepareData(Dictionary<string, object> parameters)
+        {
+            int numJobs = Convert.ToInt32(parameters["num_jobs"]);
+            int numWorkers = Convert.ToInt32(parameters["num_workers"]);
+            var jobDurations = (List<List<object>>)parameters["job_durations"];
+            var workerProductivities = (List<List<object>>)parameters["worker_productivities"];
 
-//        private static void ValidateParameters(Dictionary<string, object> parameters)
-//        {
-//            if (!parameters.ContainsKey("num_jobs") || !parameters.ContainsKey("num_workers") ||
-//                !parameters.ContainsKey("job_durations") || !parameters.ContainsKey("worker_productivities"))
-//            {
-//                throw new ArgumentException("Не все обязательные параметры предоставлены");
-//            }
+            // Проверки
+            if (numWorkers > numJobs)
+                throw new ArgumentException("Количество работников не может превышать количество работ");
+            if (jobDurations.Count != numJobs || workerProductivities.Count != numWorkers)
+                throw new ArgumentException("Несоответствие размеров входных данных");
 
-//            int numJobs = Convert.ToInt32(parameters["num_jobs"]);
-//            int numWorkers = Convert.ToInt32(parameters["num_workers"]);
+            // Создание работ
+            var jobs = new List<Job>();
+            for (int i = 0; i < numJobs; i++)
+            {
+                jobs.Add(new Job(i + 1)
+                {
+                    Name = $"Работа {i + 1}",
+                    RemainingDuration = Convert.ToDouble(jobDurations[i][0])
+                });
+            }
 
-//            if (numWorkers > numJobs)
-//            {
-//                throw new ArgumentException("Количество работников не может превышать количество работ");
-//            }
+            // Создание работников
+            var workers = new List<Worker>();
+            for (int i = 0; i < numWorkers; i++)
+            {
+                workers.Add(new Worker(i + 1)
+                {
+                    Name = $"Работник {i + 1}",
+                    Productivity = Convert.ToDouble(workerProductivities[i][0])
+                });
+            }
 
-//            if (numJobs <= 0 || numWorkers <= 0)
-//            {
-//                throw new ArgumentException("Количество работ и работников должно быть положительным");
-//            }
-//        }
+            // Сортировка
+            jobs = jobs.OrderByDescending(j => j.RemainingDuration).ToList();
+            workers = workers.OrderByDescending(w => w.Productivity).ToList();
 
-//        private static (List<Job>, List<Worker>) PrepareData(Dictionary<string, object> parameters)
-//        {
-//            int numJobs = Convert.ToInt32(parameters["num_jobs"]);
-//            int numWorkers = Convert.ToInt32(parameters["num_workers"]);
+            return (jobs, workers);
+        }
 
-//            var jobDurationsRaw = (List<List<object>>)parameters["job_durations"];
-//            var workerProductivitiesRaw = (List<List<object>>)parameters["worker_productivities"];
+        private static Schedule BuildSchedule(List<Job> jobs, List<Worker> workers)
+        {
+            foreach (var j in jobs) Console.WriteLine(j.Name);
+            foreach (var j in jobs) Console.WriteLine(j.RemainingDuration);
+            foreach (var w in workers) Console.WriteLine(w.Name);
+            foreach (var w in workers) Console.WriteLine(w.Productivity);
 
-//            // Проверяем соответствие размеров массивов
-//            if (jobDurationsRaw.Count != numJobs || workerProductivitiesRaw.Count != numWorkers)
-//            {
-//                throw new ArgumentException("Несоответствие размеров входных данных");
-//            }
+            var schedule = new Schedule();
+            double currentTime = 0;
 
-//            var jobs = new List<Job>();
-//            for (int i = 0; i < numJobs; i++)
-//            {
-//                try
-//                {
-//                    jobs.Add(new Job(i + 1)
-//                    {
-//                        Name = $"Job {i + 1}",
-//                        RemainingDuration = Convert.ToDouble(jobDurationsRaw[i][0])
-//                    });
-//                }
-//                catch
-//                {
-//                    throw new ArgumentException($"Некорректная длительность для работы {i + 1}");
-//                }
-//            }
+            var assignments = new Dictionary<Worker, List<Job>>();
+            var timeStep = 0.0;
+            workers = workers.OrderByDescending(w => w.Productivity).ToList();
+            // пока все работы не сравнялись по длительности
+            while (!jobs.All(j => Math.Abs(j.RemainingDuration - jobs[0].RemainingDuration) < 0.0001))
+            {
+                Console.WriteLine("ППППППППППППППППППППП");
+                // перед назначением округляем длительности до определённой точности
+                // из за работы с дробными числами 
 
-//            var workers = new List<Worker>();
-//            for (int i = 0; i < numWorkers; i++)
-//            {
-//                try
-//                {
-//                    workers.Add(new Worker(i + 1)
-//                    {
-//                        Name = $"Worker {i + 1}",
-//                        Productivity = Convert.ToDouble(workerProductivitiesRaw[i][0])
-//                    });
-//                }
-//                catch
-//                {
-//                    throw new ArgumentException($"Некорректная производительность для работника {i + 1}");
-//                }
-//            }
+                // 1. назначаем работы работникам
+                assignments = AssignJobs(jobs, workers);
 
-//            // Сортируем работы и работников
-//            jobs = jobs.OrderByDescending(j => j.RemainingDuration).ToList();
-//            workers = workers.OrderByDescending(w => w.Productivity).ToList();
+                // 2. расчет времени до следующего назначения
+                timeStep = CalculateTimeStep(assignments, jobs, workers);
+                if (timeStep == 0) break;
 
-//            return (jobs, workers);
-//        }
+                // 3. выполняем работы
+                ProcessTimeStep(schedule, assignments, timeStep, ref currentTime);
+            }
 
-//        private static Schedule CreateSchedule(List<Job> jobs, List<Worker> workers)
-//        {
-//            var schedule = new Schedule();
-//            double currentTime = 0;
+            // после того, как все работы сравнялись:
+            assignments = new Dictionary<Worker, List<Job>>();
+            foreach (var worker in workers)
+                assignments[worker] = new List<Job>();
 
-//            while (jobs.Any(j => j.RemainingDuration > 0))
-//            {
-//                var activeJobs = jobs.Where(j => j.RemainingDuration > 0)
-//                                   .OrderByDescending(j => j.RemainingDuration)
-//                                   .ToList();
+            jobs = jobs.OrderBy(j => j.Name).ToList();
+            int count = 0;
+            foreach(var worker in workers)
+            {
+                var jobsAssign = new List<Job>();
+                for (int i = count; i < jobs.Count; i++)
+                {
+                    jobsAssign.Add(jobs[i]);
+                }
+                for (int i = 0; i < count; i++)
+                {
+                    jobsAssign.Add(jobs[i]);
+                }
+                assignments[worker] = jobsAssign;
+                count++;
+            }
 
-//                var assignments = AssignJobsToWorkers(activeJobs, workers);
-//                double timeStep = CalculateTimeStep(assignments, activeJobs);
-//                UpdateSchedule(schedule, assignments, timeStep, ref currentTime);
-//            }
+            timeStep = (jobs[0].RemainingDuration * jobs.Count) / (workers.Sum(w => w.Productivity));
 
-//            schedule.CalculateTotalDuration();
-//            return schedule;
-//        }
+            // выполняем работы
+            ProcessTimeStep(schedule, assignments, timeStep, ref currentTime);
 
-//        private static Dictionary<Worker, List<Job>> AssignJobsToWorkers(List<Job> activeJobs, List<Worker> workers)
-//        {
-//            var assignments = new Dictionary<Worker, List<Job>>();
-//            foreach (var worker in workers)
-//            {
-//                assignments[worker] = new List<Job>();
-//            }
+            schedule.CalculateTotalDuration();
+            return schedule;
+        }
 
-//            var priorityGroups = activeJobs
-//                .GroupBy(j => j.RemainingDuration)
-//                .OrderByDescending(g => g.Key)
-//                .ToList();
+        private static Dictionary<string, object> FormatResults(Schedule schedule)
+        {
+            return new Dictionary<string, object>
+            {
+                ["gantt_data"] = GanttChartGenerator.GenerateChartData(schedule)
+            };
+        }
 
-//            int workerIndex = 0;
-//            foreach (var group in priorityGroups)
-//            {
-//                var jobsInGroup = group.ToList();
-//                int jobsCount = jobsInGroup.Count;
+        private static double RoundToThreeDigits(double value)
+        {
+            return Math.Round(value, 3, MidpointRounding.AwayFromZero);
+        }
 
-//                if (jobsCount >= workers.Count)
-//                {
-//                    for (int i = 0; i < jobsCount; i++)
-//                    {
-//                        assignments[workers[i % workers.Count]].Add(jobsInGroup[i]);
-//                    }
-//                    break;
-//                }
-//                else
-//                {
-//                    while (jobsCount < workers.Count && workerIndex < priorityGroups.Count - 1)
-//                    {
-//                        workerIndex++;
-//                        jobsInGroup.AddRange(priorityGroups[workerIndex].ToList());
-//                        jobsCount = jobsInGroup.Count;
-//                    }
+        private static Dictionary<Worker, List<Job>> AssignJobs(List<Job> jobs, List<Worker> workers)
+        {
+            var assignments = new Dictionary<Worker, List<Job>>();
+            foreach (var worker in workers)
+                assignments[worker] = new List<Job>();
 
-//                    for (int i = 0; i < jobsCount; i++)
-//                    {
-//                        assignments[workers[i % workers.Count]].Add(jobsInGroup[i]);
-//                    }
-//                    break;
-//                }
-//            }
+            var priorityGroups = jobs
+                .GroupBy(j => j.RemainingDuration)
+                .OrderByDescending(g => g.Key)
+                .ToList();
 
-//            return assignments;
-//        }
+            int workersCount = workers.Count;
+            int assignedJobs = 0;
 
-//        private static double CalculateTimeStep(Dictionary<Worker, List<Job>> assignments, List<Job> activeJobs)
-//        {
-//            double timeStep = double.MaxValue;
+            if (priorityGroups.Count >= workersCount)
+            {
+                int count = 0;
+                foreach (var group in priorityGroups)
+                {
+                    if (count < workersCount)
+                    {
+                        var jobsInGroup = group.ToList();
+                        assignments[workers[count]] = jobsInGroup;
+                        count++;
+                    }
+                }
+            }
+            else
+            {
+                int count = 0;
+                foreach (var group in priorityGroups)
+                {
+                    var jobsInGroup = group.ToList();
+                    if (jobsInGroup.Count > workersCount)
+                    {
+                        for (int i = 0; i < workersCount; i++)
+                        {
+                            assignments[workers[i]] = new List<Job>(jobsInGroup);
+                            count++;
+                        }
+                    }
+                    else
+                    {
+                        for (int i = 0; i < jobsInGroup.Count; i++)
+                        {
+                            if (count < workersCount)
+                            {
+                                assignments[workers[count]] = new List<Job> { jobsInGroup[i] };
+                                count++;
+                            }
+                        }
+                    }
+                }
+            }
 
-//            foreach (var assignment in assignments)
-//            {
-//                if (assignment.Value.Any())
-//                {
-//                    double productivityPerJob = assignment.Key.Productivity / assignment.Value.Count;
-//                    foreach (var job in assignment.Value)
-//                    {
-//                        timeStep = Math.Min(timeStep, job.RemainingDuration / productivityPerJob);
-//                    }
-//                }
-//            }
+            return assignments;
+        }
 
-//            var distinctRemainingTimes = activeJobs.Select(j => j.RemainingDuration)
-//                                                 .Distinct()
-//                                                 .OrderBy(d => d)
-//                                                 .ToList();
+        private static double CalculateTimeStep(Dictionary<Worker, List<Job>> assignments, List<Job> jobs, List <Worker> workers)
+        {
+            double minTime = double.MaxValue;
 
-//            for (int i = 1; i < distinctRemainingTimes.Count; i++)
-//            {
-//                double diff = distinctRemainingTimes[i] - distinctRemainingTimes[i - 1];
-//                if (diff > 0)
-//                {
-//                    timeStep = Math.Min(timeStep, diff);
-//                }
-//            }
+            // 1. Время до завершения любой из работ
+            foreach (var assignment in assignments)
+            {
+                if (assignment.Value.Any())
+                {
+                    double productivityPerJob = assignment.Key.Productivity / assignment.Value.Count;
+                    foreach (var job in assignment.Value)
+                    {
+                        double time = job.RemainingDuration / productivityPerJob;
+                        minTime = Math.Min(minTime, time);
+                    }
+                }
+            }
 
-//            if (timeStep == double.MaxValue)
-//            {
-//                throw new InvalidOperationException("Не удалось определить время следующего шага");
-//            }
+            // 2. Время до сравнения приоритетов
 
-//            return timeStep;
-//        }
+            for (int i = 0; i < workers.Count; i++)
+            {
+                for (int j = i; j < workers.Count; j++)
+                {
+                    double productivityPerJob1 = workers[i].Productivity / assignments[workers[i]].Count;
+                    double productivityPerJob2 = workers[j].Productivity / assignments[workers[j]].Count;
 
-//        private static void UpdateSchedule(Schedule schedule, Dictionary<Worker, List<Job>> assignments,
-//                                         double timeStep, ref double currentTime)
-//        {
-//            foreach (var assignment in assignments)
-//            {
-//                if (assignment.Value.Any())
-//                {
-//                    double productivityPerJob = assignment.Key.Productivity / assignment.Value.Count;
-//                    foreach (var job in assignment.Value)
-//                    {
-//                        double completed = timeStep * productivityPerJob;
-//                        job.RemainingDuration -= completed;
+                    double diffDur = Math.Abs(assignments[workers[i]][0].RemainingDuration - assignments[workers[j]][0].RemainingDuration);
+                    double diffProd = Math.Abs(productivityPerJob1 - productivityPerJob2);
 
-//                        schedule.AddItem(new ScheduleItem(job, new Stage(1)
-//                        {
-//                            StartTime = currentTime,
-//                            EndTime = currentTime + timeStep
-//                        });
-//                    }
-//                }
-//            }
+                    double time = diffDur / diffProd;
 
-//            currentTime += timeStep;
-//        }
+                    // time > 0.001 и для сравнения задач между собой разница их длительностей diffDur > 0.001
+                    if (time > 0.001 && diffDur > 0.001)
+                    {
+                        minTime = Math.Min(minTime, time);
+                    }
+                }
+            }
 
-//        private static Dictionary<string, object> FormatResults(Schedule schedule)
-//        {
-//            return new Dictionary<string, object>
-//            {
-//                ["total_duration"] = schedule.TotalDuration,
-//                ["schedule_details"] = FormatScheduleDetails(schedule),
-//                ["gantt_data"] = GanttChartGenerator.GenerateChartData(schedule),
-//                ["success"] = true
-//            };
-//        }
+            // сравняется с наиболее приоритетной из неназначенных работ
+            var lastWorker = workers[workers.Count - 1];
+            double prodPerJob = lastWorker.Productivity / assignments[lastWorker].Count;
+            // время наиболее приоритетной из неназначенных работ
+            var lastJob = new Job(-1);
+            foreach(var j in jobs)
+            {
+                if (j.RemainingDuration < assignments[lastWorker][0].RemainingDuration)
+                {
+                    lastJob = j;
+                    break;
+                }
+            }
+            if (lastJob.Id != -1)
+            {
+                double lastDiffDur = Math.Abs(assignments[lastWorker][0].RemainingDuration - lastJob.RemainingDuration);
+                double lastTime = lastDiffDur / prodPerJob;
+                // time > 0.001 и для сравнения задач между собой разница их длительностей diffDur > 0.001
+                if (lastTime > 0.001 && lastDiffDur > 0.001)
+                {
+                    minTime = Math.Min(minTime, lastTime);
+                }
+            }
 
-//        private static string FormatScheduleDetails(Schedule schedule)
-//        {
-//            return string.Join("\n", schedule.Items
-//                .OrderBy(item => item.StartTime)
-//                .Select(item => $"{item.Worker.Name}: {item.Job.Name} - " +
-//                               $"Time: {item.StartTime:0.##}-{item.EndTime:0.##} " +
-//                               $"(Duration: {item.EndTime - item.StartTime:0.##})"));
-//        }
+            if (minTime == double.MaxValue)
+                throw new InvalidOperationException("Не удалось определить время шага");
 
-//        private static string GetUserFriendlyErrorMessage(Exception ex)
-//        {
-//            return ex switch
-//            {
-//                ArgumentException _ => $"Ошибка входных данных: {ex.Message}",
-//                InvalidOperationException _ => $"Ошибка выполнения алгоритма: {ex.Message}",
-//                _ => "Произошла непредвиденная ошибка при выполнении алгоритма"
-//            };
-//        }
-//    }
-//}
+
+            Console.WriteLine();
+            Console.WriteLine();
+            Console.WriteLine();
+            Console.WriteLine();
+            Console.WriteLine();
+            Console.WriteLine();
+            Console.WriteLine("РАСЧЁТ ШАГА ДЛЯ НАЗНАЧЕННЫХ РАБОТ");
+            foreach (var worker in workers)
+            {
+                foreach (var jobf in assignments[worker])
+                {
+                    Console.WriteLine(jobf.Name);
+                }
+            }
+            Console.WriteLine(minTime);
+            Console.WriteLine();
+            Console.WriteLine();
+            Console.WriteLine();
+            Console.WriteLine();
+            Console.WriteLine();
+            Console.WriteLine();
+            Console.WriteLine();
+            Console.WriteLine();
+
+            // округлять minTime
+            return minTime;
+        }
+
+        private static void ProcessTimeStep(Schedule schedule, Dictionary<Worker, List<Job>> assignments,
+                                         double timeStep, ref double currentTime)
+        {
+            foreach (var assignment in assignments)
+            {
+                if (assignment.Value.Any())
+                {
+                    double productivityPerJob = assignment.Key.Productivity / assignment.Value.Count;
+
+                    var timeStepForJobs = timeStep / assignment.Value.Count;
+                    var currentTimeForJobs = currentTime;
+                    foreach (var job in assignment.Value)
+                    {
+                        double workDone = timeStep * productivityPerJob;
+                        job.RemainingDuration -= workDone;
+                        // и округлить  с какой то точностью
+
+                        schedule.AddItem(new ScheduleItem(job, new Stage(1)
+                        {
+                            Name = $"Выполнение {job.Name}",
+                            Duration = workDone
+                        }, assignment.Key)
+                        {
+                            StartTime = currentTimeForJobs,
+                            EndTime = currentTimeForJobs + timeStepForJobs
+                        });
+                        currentTimeForJobs += timeStepForJobs;
+                    }
+                }
+            }
+
+            // округлять currentTime
+            currentTime += timeStep;
+        }
+    }
+}

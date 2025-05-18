@@ -267,7 +267,7 @@ namespace Optimizator.Services
             }
         }
 
-        // проверка выходных данных, реализовать позже
+        // проверка выходных данных
         //private void ValidateOutputs(AlgorithmDefinition algorithm, Dictionary<string, object> result) { }
     }
 }

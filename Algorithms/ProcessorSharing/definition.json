@@ -30,8 +30,8 @@
       "default_value": [
         [ 5.0 ],
         [ 3.0 ],
-        [ 2.0 ],
-        [ 1.0 ]
+        [ 4.0 ],
+        [ 2.0 ]
       ],
       "dimensions": {
         "rows": "num_jobs",
@@ -47,7 +47,7 @@
       "data_shape": "DYNAMIC_MATRIX",
       "default_value": [
         [ 1.0 ],
-        [ 0.5 ]
+        [ 4.0 ]
       ],
       "dimensions": {
         "rows": "num_workers",
@@ -57,27 +57,6 @@
     }
   ],
   "outputs": [
-    {
-      "name": "total_duration",
-      "title": "Общее время выполнения",
-      "description": "Минимальное общее время выполнения всех работ",
-      "data_type": "FLOAT",
-      "data_shape": "SCALAR"
-    },
-    {
-      "name": "schedule",
-      "title": "Порядок выполнения",
-      "description": "Порядок выполнения работ",
-      "data_type": "STRING",
-      "data_shape": "SCALAR"
-    },
-    {
-      "name": "schedule_details",
-      "title": "Детали расписания",
-      "description": "Подробное описание выполнения работ",
-      "data_type": "STRING",
-      "data_shape": "SCALAR"
-    },
     {
       "name": "gantt_data",
       "title": "Данные для диаграммы Ганта",
