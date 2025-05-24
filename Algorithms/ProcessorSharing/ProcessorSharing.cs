@@ -17,11 +17,6 @@ namespace Optimizator.Algorithms.ProcessorSharing
                 // 2. Построение расписания
                 var schedule = BuildSchedule(jobs, workers);
 
-                foreach (var j in jobs) Console.WriteLine(j.Name);
-                foreach (var j in jobs) Console.WriteLine(j.RemainingDuration);
-                foreach (var w in workers) Console.WriteLine(w.Name);
-                foreach (var w in workers) Console.WriteLine(w.Productivity);
-
                 // 3. Форматирование результатов
                 return FormatResults(schedule);
             }
@@ -79,11 +74,6 @@ namespace Optimizator.Algorithms.ProcessorSharing
 
         private static Schedule BuildSchedule(List<Job> jobs, List<Worker> workers)
         {
-            foreach (var j in jobs) Console.WriteLine(j.Name);
-            foreach (var j in jobs) Console.WriteLine(j.RemainingDuration);
-            foreach (var w in workers) Console.WriteLine(w.Name);
-            foreach (var w in workers) Console.WriteLine(w.Productivity);
-
             var schedule = new Schedule();
             double currentTime = 0;
 
@@ -93,7 +83,6 @@ namespace Optimizator.Algorithms.ProcessorSharing
             // пока все работы не сравнялись по длительности
             while (!jobs.All(j => Math.Abs(j.RemainingDuration - jobs[0].RemainingDuration) < 0.0001))
             {
-                Console.WriteLine("ППППППППППППППППППППП");
                 // перед назначением округляем длительности до определённой точности
                 // из за работы с дробными числами 
 
@@ -276,31 +265,6 @@ namespace Optimizator.Algorithms.ProcessorSharing
 
             if (minTime == double.MaxValue)
                 throw new InvalidOperationException("Не удалось определить время шага");
-
-
-            Console.WriteLine();
-            Console.WriteLine();
-            Console.WriteLine();
-            Console.WriteLine();
-            Console.WriteLine();
-            Console.WriteLine();
-            Console.WriteLine("РАСЧЁТ ШАГА ДЛЯ НАЗНАЧЕННЫХ РАБОТ");
-            foreach (var worker in workers)
-            {
-                foreach (var jobf in assignments[worker])
-                {
-                    Console.WriteLine(jobf.Name);
-                }
-            }
-            Console.WriteLine(minTime);
-            Console.WriteLine();
-            Console.WriteLine();
-            Console.WriteLine();
-            Console.WriteLine();
-            Console.WriteLine();
-            Console.WriteLine();
-            Console.WriteLine();
-            Console.WriteLine();
 
             // округлять minTime
             return minTime;

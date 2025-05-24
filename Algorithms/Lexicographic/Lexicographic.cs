@@ -202,15 +202,6 @@ namespace Optimizator.Algorithms.Lexicographic
                 .Select(item => item.Job.Id)
                 .ToList();
         }
-
-        //private static string FormatScheduleDetails(Schedule schedule)
-        //{
-        //    return string.Join("\n", schedule.Items
-        //        .OrderBy(item => item.StartTime)
-        //        .Select(item =>
-        //            $"{item.Worker.Name}: {item.Job.Name} - " +
-        //            $"Time: {item.StartTime:0.##}-{item.EndTime:0.##}"));
-        //}
     }
 
     public class NumericStringComparer : IComparer<string>
@@ -238,7 +229,7 @@ namespace Optimizator.Algorithms.Lexicographic
                     return partX.CompareTo(partY);
             }
 
-            return 0; // если все части равны (но строки разные, хотя такого быть не должно)
+            return 0;
         }
     }
 }

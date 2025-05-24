@@ -16,7 +16,7 @@
       "name": "dependencies",
       "title": "Матрица зависимостей",
       "description": "Матрица N×N, где 1 означает зависимость работы i от j",
-      "data_type": "INT",
+      "data_type": "BOOL",
       "data_shape": "DYNAMIC_MATRIX",
       "default_value": [
         [ 0, 1, 0 ],

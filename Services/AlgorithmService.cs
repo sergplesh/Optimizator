@@ -115,7 +115,6 @@ namespace Optimizator.Services
 
                 if (paramValue is string jsonString)
                 {
-                    // Десериализуем JSON напрямую в нужную структуру
                     var jsonArray = JsonSerializer.Deserialize<JsonElement>(jsonString);
 
                     foreach (var rowElement in jsonArray.EnumerateArray())
@@ -123,7 +122,7 @@ namespace Optimizator.Services
                         var row = new List<object>();
                         foreach (var cellElement in rowElement.EnumerateArray())
                         {
-                            row.Add(ConvertJsonElement(cellElement, paramDef.DataType));
+                            row.Add(ProcessCellValue(cellElement, paramDef.DataType));
                         }
                         matrix.Add(row);
                     }
@@ -135,7 +134,7 @@ namespace Optimizator.Services
                         var row = new List<object>();
                         foreach (var cellElement in rowElement.EnumerateArray())
                         {
-                            row.Add(ConvertJsonElement(cellElement, paramDef.DataType));
+                            row.Add(ProcessCellValue(cellElement, paramDef.DataType));
                         }
                         matrix.Add(row);
                     }
@@ -146,14 +145,19 @@ namespace Optimizator.Services
                     {
                         if (rowObj is List<object> row)
                         {
-                            matrix.Add(row);
+                            var convertedRow = new List<object>();
+                            foreach (var cell in row)
+                            {
+                                convertedRow.Add(ConvertCellValue(cell, paramDef.DataType));
+                            }
+                            matrix.Add(convertedRow);
                         }
                         else if (rowObj is JsonElement rowElement)
                         {
                             var convertedRow = new List<object>();
                             foreach (var cellElement in rowElement.EnumerateArray())
                             {
-                                convertedRow.Add(ConvertJsonElement(cellElement, paramDef.DataType));
+                                convertedRow.Add(ProcessCellValue(cellElement, paramDef.DataType));
                             }
                             matrix.Add(convertedRow);
                         }
@@ -179,6 +183,44 @@ namespace Optimizator.Services
             {
                 throw new ArgumentException($"Ошибка обработки матричного параметра: {ex.Message}");
             }
+        }
+
+        private object ProcessCellValue(JsonElement element, DataType dataType)
+        {
+            if (element.ValueKind == JsonValueKind.Null)
+                return null;
+
+            return dataType switch
+            {
+                DataType.INT => element.ValueKind == JsonValueKind.Number ?
+                               element.GetInt32() :
+                               int.Parse(element.GetString()),
+                DataType.FLOAT => element.ValueKind == JsonValueKind.Number ?
+                                 element.GetDouble() :
+                                 double.Parse(element.GetString()),
+                DataType.BOOL => element.ValueKind == JsonValueKind.Number ?
+                                 element.GetInt32() != 0 :
+                                 element.GetBoolean(),
+                _ => element.ValueKind == JsonValueKind.String ?
+                     element.GetString() :
+                     element.GetRawText()
+            };
+        }
+
+        private object ConvertCellValue(object value, DataType dataType)
+        {
+            if (value == null)
+                return null;
+
+            return dataType switch
+            {
+                DataType.INT => Convert.ToInt32(value),
+                DataType.FLOAT => Convert.ToDouble(value),
+                DataType.BOOL => value is bool b ? b :
+                                value is int i ? i != 0 :
+                                Convert.ToBoolean(value),
+                _ => value.ToString()
+            };
         }
 
         private object ProcessListParameter(object paramValue, DataElement paramDef)
