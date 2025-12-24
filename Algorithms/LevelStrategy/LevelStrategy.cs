@@ -42,6 +42,10 @@ namespace Optimizator.Algorithms.LevelStrategy
                 {
                     throw new ArgumentException("Граф зависимостей не является деревом к корню");
                 }
+                if (graph.HasCycle())
+                {
+                    throw new ArgumentException("Граф не должен иметь циклы");
+                }
 
                 // 5. Создаем работников
                 var workers = new List<Worker>();

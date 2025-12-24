@@ -35,6 +35,11 @@ namespace Optimizator.Algorithms.Lexicographic
                     }
                 }
 
+                if (graph.HasCycle())
+                {
+                    throw new ArgumentException("Граф не должен иметь циклы");
+                }
+
                 // 4. Удаляем транзитивные ребра
                 graph.RemoveTransitiveEdges();
 
